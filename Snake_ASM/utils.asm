@@ -1,15 +1,18 @@
 INCLUDE common.inc
 
-extern g_handle :DWORD
 extern g_coord :DWORD
+extern g_currentActiveBuffer :DWORD
+extern g_pendingBuffer :DWORD
 
 .code
 CalcuCenterCoord PROC
 ; param1 xUsedLength yUsedLength
 ; assert(xUsedLength <= g_coord.x)
 ; assert(yUsedLength <= g_coord.y)
+; return center coord
 	push ebp
 	mov ebp,esp
+	mov eax,DWORD PTR [g_coord]
 	; solve x
 	xor eax,eax
 	mov ax,WORD PTR [g_coord]
@@ -38,6 +41,8 @@ PrintStrs PROC
 	mov edi,0
 	mov DWORD PTR [ebp - 4],-1 ; cached length
 	mov DWORD PTR [ebp - 8],-1 ; cached coord
+	mov DWORD PTR [ebp - 12],0 ; temp
+	mov DWORD PTR [ebp - 16],0; numberOfWritten
 	PRINT:
 		cmp edi,DWORD PTR [ebp + 12]
 		JGE QUIT
@@ -62,13 +67,14 @@ PrintStrs PROC
 			mov edx,edi
 			SAL edx,16
 			add eax,edx ;add y offset
-			push eax; COORD
-			push DWORD PTR [g_handle]; handle
-			call SetConsoleCursorPosition
-			; Do Printf
-			push DWORD PTR [ebp - 12]
-			call printf
-			add esp,4
+			mov edx,ebp
+			sub edx,16
+			push edx; lpNumberOfCharsWritten
+			push eax ; coord
+			push DWORD PTR [ebp - 4] ; str length
+			push DWORD PTR [ebp - 12] ; str
+			push DWORD PTR [g_currentActiveBuffer] ; handle
+			call WriteConsoleOutputCharacterA
 		inc edi
 		JMP PRINT
 	QUIT:
@@ -78,4 +84,12 @@ PrintStrs PROC
 	pop ebp
 	ret
 PrintStrs ENDP
+
+SwapBuffer PROC
+; no param no  return
+	mov eax,DWORD PTR [g_currentActiveBuffer]
+	XCHG eax,DWORD PTR [g_pendingBuffer]
+	mov DWORD PTR [g_currentActiveBuffer],eax
+	ret
+SwapBuffer ENDP
 END

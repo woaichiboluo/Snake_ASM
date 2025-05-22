@@ -131,8 +131,9 @@
     <None Include="common.inc" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="menu.asm" />
+    <MASM Include="game.asm" />
     <MASM Include="main.asm" />
+    <MASM Include="menu.asm" />
     <MASM Include="utils.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

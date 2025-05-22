@@ -20,13 +20,16 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="menu.asm">
-      <Filter>源文件</Filter>
-    </MASM>
     <MASM Include="main.asm">
       <Filter>源文件</Filter>
     </MASM>
     <MASM Include="utils.asm">
+      <Filter>源文件</Filter>
+    </MASM>
+    <MASM Include="game.asm">
+      <Filter>源文件</Filter>
+    </MASM>
+    <MASM Include="menu.asm">
       <Filter>源文件</Filter>
     </MASM>
   </ItemGroup>

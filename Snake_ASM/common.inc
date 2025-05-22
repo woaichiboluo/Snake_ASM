@@ -9,6 +9,7 @@ strlen PROTO C :DWORD
 _time64 PROTO C :DWORD
 srand PROTO C :DWORD
 rand PROTO C
+_puts PROTO C :DWORD
 
 
 GetStdHandle PROTO :DWORD
@@ -16,7 +17,10 @@ GetConsoleCursorInfo PROTO :DWORD,:DWORD
 SetConsoleCursorInfo PROTO :DWORD,:DWORD
 GetConsoleScreenBufferInfo PROTO :DWORD,:DWORD
 SetConsoleCursorPosition PROTO :DWORD,:DWORD
+ReadConsoleInputA PROTO :DWORD,:DWORD,:DWORD,:DWORD
+WriteConsoleOutputCharacterA PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
+WriteConsoleA PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
+CreateConsoleScreenBuffer PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
+SetConsoleActiveScreenBuffer PROTO :DWORD
 GetLastError PROTO
 ExitProcess PROTO :DWORD
-
-; CalcuCenterCoord PROTO :DWORD
