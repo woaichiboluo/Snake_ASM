@@ -3,6 +3,7 @@ INCLUDE common.inc
 PrintStrs PROTO
 FillRow PROTO
 extern g_inputHandle :DWORD
+extern g_outputHandle :DWORD
 
 .const
 line1 BYTE "  ____                    _           ",0
@@ -79,11 +80,12 @@ Menu PROC
 	call InitMenuColor
 	mov ebx,OFFSET menuColor
 	mov eax,DWORD PTR [pMenuColor]
+	push DWORD PTR [g_outputHandle]
 	push OFFSET pMenuColor
 	push LENGTHOF menuStrs
 	push OFFSET menuStrs
 	call PrintStrs
-	add esp,12
+	add esp,16
 	; read key
 	push edi
 	push esi

@@ -19,11 +19,13 @@ GetConsoleCursorInfo PROTO :DWORD,:DWORD
 SetConsoleCursorInfo PROTO :DWORD,:DWORD
 GetConsoleScreenBufferInfo PROTO :DWORD,:DWORD
 SetConsoleCursorPosition PROTO :DWORD,:DWORD
+SetConsoleScreenBufferSize PROTO :DWORD,:DWORD
 ReadConsoleInputA PROTO :DWORD,:DWORD,:DWORD,:DWORD
 WriteConsoleOutputCharacterA PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
 WriteConsoleOutputAttribute PROTO :DWORD,:WORD,:DWORD,:DWORD,:DWORD
 WriteConsoleA PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
 CreateConsoleScreenBuffer PROTO :DWORD,:DWORD,:DWORD,:DWORD,:DWORD
 SetConsoleActiveScreenBuffer PROTO :DWORD
+Sleep PROTO :DWORD
 GetLastError PROTO
 ExitProcess PROTO :DWORD

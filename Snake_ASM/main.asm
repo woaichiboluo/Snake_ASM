@@ -1,12 +1,14 @@
 INCLUDE common.inc
 
 public g_inputHandle
+public g_outputHandle
 public g_coord
 public g_currentActiveBuffer
 public g_pendingBuffer
 
 .data
 g_inputHandle DWORD 0
+g_outputHandle DWORD 0
 g_currentActiveBuffer DWORD 0
 g_pendingBuffer DWORD 0
 g_coord DWORD 0
@@ -25,6 +27,14 @@ Init PROC
 	mov DWORD PTR [g_inputHandle],eax
 	push -11
 	call GetStdHandle
+	mov DWORD PTR [g_outputHandle],eax
+	; create new buffer
+	push 0;
+	push 1; console model
+	push 0
+	push 0; shared mode
+	push 40000000h; desired access
+	call CreateConsoleScreenBuffer
 	mov DWORD PTR [g_currentActiveBuffer],eax
 	; create new buffer
 	push 0;
@@ -38,7 +48,7 @@ Init PROC
 	mov eax,ebp
 	sub eax,22
 	push eax
-	push DWORD PTR [g_currentActiveBuffer]
+	push DWORD PTR [g_outputHandle]
 	call GetConsoleScreenBufferInfo
 	mov eax,DWORD PTR [ebp - 8]
 	mov DWORD PTR [g_coord],eax
@@ -73,8 +83,6 @@ Init ENDP
 
 main PROC
 	call Init
-	mov eax,DWORD PTR [g_currentActiveBuffer]
-	mov ebx,DWORD PTR [g_pendingBuffer]
 	call Menu
 	cmp eax,0
 	je exit

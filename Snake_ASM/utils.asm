@@ -3,6 +3,7 @@ INCLUDE common.inc
 extern g_coord :DWORD
 extern g_currentActiveBuffer :DWORD
 extern g_pendingBuffer :DWORD
+extern g_outputHandle :DWORD
 
 .code
 CalcuCenterCoord PROC
@@ -120,7 +121,7 @@ FillBorder PROC
 FillBorder ENDP
 
 PrintStrs PROC
-; param1 char** param2 length,param3 color**
+; param1 char** param2 length,param3 color**,param4 buffer
 	push ebp
 	mov ebp,esp
 	push esi
@@ -165,8 +166,10 @@ PrintStrs PROC
 			push eax ; coord
 			push DWORD PTR [ebp - 4] ; str length
 			push DWORD PTR [ebp - 12] ; str
-			push DWORD PTR [g_currentActiveBuffer] ; handle
+			push DWORD PTR [ebp + 20] ; handle
+			mov eax,DWORD PTR [ebp + 20]
 			call WriteConsoleOutputCharacterA
+			call GetLastError
 			pop eax
 
 			mov edx,ebp
@@ -176,9 +179,8 @@ PrintStrs PROC
 			push DWORD PTR [ebp - 4] ; length
 			mov ecx,DWORD PTR [ebp - 20]; color**
 			push DWORD PTR [ecx]; attributes  color*
-			push DWORD PTR [g_currentActiveBuffer] ; handle
+			push DWORD PTR [ebp + 20] ; handle
 			call WriteConsoleOutputAttribute
-			call GetLastError
 		inc edi
 		mov ecx,DWORD PTR [ebp - 20]; color**
 		add ecx,4

@@ -13,7 +13,7 @@ FillBorder PROTO
 GetRandomFromRange PROTO
 
 .data
-MapSize = 5
+MapSize = 25
 map WORD MapSize*MapSize DUP(0)
 EMPTY = 0
 BORDER = 1
@@ -39,6 +39,9 @@ FOODCOLOR = 3
 ; for snake
 snakeArr DWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save snake (x,y) x in low byte,y in high byte
 snakeHead DWORD -1
+; UP -FFFF0000h DOWN 1000h LEFT -1 RIGHT 1
+moveDirection DWORD 1
+speed DWORD 150
 
 .code
 InitMap PROC
@@ -159,10 +162,10 @@ TraversalSnake PROC
 	push esi
 	push edi
 	mov ecx,0
-	lea edx,snakeArr
 	ADDSNAKE:
 		cmp ecx,DWORD PTR [snakeHead]
 		jg ADDDONE
+		lea edx,snakeArr
 		mov esi,DWORD PTR [edx + ecx * 4] 
 		and esi,0FFFFh ; x
 		mov edi,DWORD PTR [edx + ecx * 4] 
@@ -174,7 +177,7 @@ TraversalSnake PROC
 		sal eax,1 ; eax = 2 * x * MapSize + y
 		mov edx,offset map
 		add edx,eax
-		mov si,WORD PTR [ebp + 4] ; value
+		mov si,WORD PTR [ebp + 8] ; value
 		mov WORD PTR [edx],si
 		inc ecx
 		jmp ADDSNAKE
@@ -189,6 +192,7 @@ InsertSnakeNode PROC
 ; param1 x param2 y
 	push ebp
 	mov ebp,esp
+	pushad
 	mov eax,DWORD PTR [ebp + 8] ; x
 	inc eax
 	mov ebx,DWORD PTR [ebp + 12] ; y
@@ -201,6 +205,7 @@ InsertSnakeNode PROC
 	mov DWORD PTR [snakeHead],ecx
 	lea edx,snakeArr
 	mov DWORD PTR [edx + ecx * 4],eax
+	popad
 	pop ebp
 	ret
 InsertSnakeNode ENDP
@@ -208,19 +213,18 @@ InsertSnakeNode ENDP
 GenSnake PROC
 	push ebp
 	mov ebp,esp
-	push MapSize - 2
-	push 0
-	call GetRandomFromRange
-	add esp,8
-	mov ebx,eax ; x
-	push MapSize - 2
-	push 0
-	call GetRandomFromRange
-	add esp,8
-	push ebx
-	push eax
-	call InsertSnakeNode
-	add esp,8
+	mov eax,0
+	mov ebx,MapSize
+	sar ebx,1
+	sub ebx,1
+	mov ecx,3
+	ADDSNAKENODE:
+		push ebx
+		push eax
+		call InsertSnakeNode
+		add esp,8
+		add eax,1
+		LOOP ADDSNAKENODE
 	push SNAKE
 	call TraversalSnake
 	add esp,4
@@ -231,15 +235,16 @@ GenSnake ENDP
 PrintMap PROC
 	push ebp
 	mov ebp,esp
-	call UpdateMap
 	call SwapBuffer
+	call UpdateMap
 	push DWORD PTR [g_currentActiveBuffer]
-	call SetConsoleActiveScreenBuffer
 	push offset pMapRawColor
 	push MapSize + 2
 	push offset pMapRawData
 	call PrintStrs
-	add esp,12
+	add esp,16
+	push DWORD PTR [g_currentActiveBuffer]
+	call SetConsoleActiveScreenBuffer
 	pop ebp
 	ret
 PrintMap ENDP
@@ -247,57 +252,98 @@ PrintMap ENDP
 WaitKey PROC
 	push ebp
 	mov ebp,esp
-	INFINITY:
+	push esi
+	HASKEY:
 		call _kbhit
 		cmp eax,0
-		je INFINITY
+		je NOMOREKEY
 		call _getch
+		mov esi,eax
+		jmp HASKEY
+	NOMOREKEY:
 		; W 119 S 115 A 97 D 100
 		; UP 72 DOWN 80 LEFT 75 RIGHT 77
-		cmp eax,119
+		cmp esi,119
 		je CASE_UP_TRUE
-		cmp eax,72
+		cmp esi,72
 		je CASE_UP_TRUE
 		jmp CASE_UP_FALSE
 		CASE_UP_TRUE:
-			mov eax,-1
-			sal eax,16
-			jmp QUITWAIT
+			; cmp DWORD PTR [moveDirection],0FFFF0000h
+			; cmp DWORD PTR [moveDirection],10000h
+			; cmp DWORD PTR [moveDirection],-1
+			; cmp DWORD PTR [moveDirection],1
+			cmp DWORD PTR [moveDirection],10000h
+			je KEEP
+			mov moveDirection,0FFFF0000h
+			jmp KEEP
 		CASE_UP_FALSE:
-			cmp eax,115
+			cmp esi,115
 			je CASE_DOWN_TRUE
-			cmp eax,80
+			cmp esi,80
 			je CASE_DOWN_TRUE
 			jmp CASE_DOWN_FALSE
 		CASE_DOWN_TRUE:
-			mov eax,1
-			sal eax,16
-			jmp QUITWAIT
+			cmp DWORD PTR [moveDirection],0FFFF0000h
+			je KEEP
+			mov moveDirection,10000h
+			jmp KEEP
 		CASE_DOWN_FALSE:
-			cmp eax,97
+			cmp esi,97
 			je CASE_LEFT_TRUE
-			cmp eax,75
+			cmp esi,75
 			je CASE_LEFT_TRUE
 			jmp CASE_LEFT_FALSE
 		CASE_LEFT_TRUE:
-			mov eax,-1
-			jmp QUITWAIT
+			cmp DWORD PTR [moveDirection],1
+			je KEEP
+			mov moveDirection,-1
+			jmp KEEP
 		CASE_LEFT_FALSE:
-			cmp eax,100
+			cmp esi,100
 			je CASE_RIGHT_TRUE
-			cmp eax,77
+			cmp esi,77
 			je CASE_RIGHT_TRUE
-			jmp INFINITY
+			jmp KEEP
 		CASE_RIGHT_TRUE:
-			mov eax,1
-			jmp QUITWAIT
-	QUITWAIT:
+			cmp DWORD PTR [moveDirection],-1
+			je KEEP
+			mov moveDirection,1
+			jmp KEEP
+	KEEP:
+	pop esi
 	pop ebp
 	ret
 WaitKey ENDP
 
+MoveSnake PROC
+; pram1 new (x,y)
+	push ebp
+	mov ebp,esp
+	mov eax,0
+	mov ebx,offset snakeArr
+	mov ecx,DWORD PTR [snakeHead]
+	sub ecx ,1
+	DOMOVE:
+		cmp eax,ecx
+		jg ENDMOVE
+		mov edx,DWORD PTR [ebx + eax * 4 + 4] ; next
+		mov DWORD PTR [ebx + eax * 4],edx; move
+		add eax,1
+		jmp DOMOVE
+	ENDMOVE:
+		mov edx,DWORD PTR [ebp + 8]
+		mov DWORD PTR [ebx + eax * 4],edx
+	push SNAKE
+	call TraversalSnake
+	add esp,4
+	pop ebp
+	ret
+MoveSnake ENDP
+
 TryMove PROC
 ; param1 direction
+; return 1: move 0: game_over
 	push ebp
 	mov ebp,esp
 	; get cur snake head
@@ -305,6 +351,15 @@ TryMove PROC
 	mov ebx,offset snakeArr
 	mov edx,DWORD PTR [ebx + eax * 4] ; (x,y)
 	add edx,DWORD PTR [ebp + 8] ; next (x,y)
+	pushad
+	push EMPTY
+	call TraversalSnake
+	add esp,4
+	popad
+	push edx
+	call MoveSnake
+	add esp,4
+	; if next (x,y) is snake,
 	pop ebp
 	ret
 TryMove ENDP
@@ -318,10 +373,14 @@ GameLoop PROC
 
 	DOGAME:
 		call WaitKey
-		push eax
+		mov eax,DWORD PTR [moveDirection]
+		push DWORD PTR [moveDirection]
 		call TryMove
-		cmp eax,1
-		je ENDGAME
+		add esp,4
+		call PrintMap
+		push DWORD PTR [speed]
+		call Sleep
+		;je ENDGAME
 		jmp DOGAME
 	ENDGAME:
 	pop ebp
