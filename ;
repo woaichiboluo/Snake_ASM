@@ -1,0 +1,183 @@
+INCLUDE common.inc
+
+extern g_inputHandle :DWORD
+extern g_coord :DWORD
+extern g_currentActiveBuffer :DWORD
+extern g_pendingBuffer :DWORD
+
+PrintStrs PROTO
+SwapBuffer PROTO
+FillRow PROTO
+FillColumn PROTO
+FillBorder PROTO
+
+.data
+MapSize = 25
+map WORD MapSize*MapSize DUP(0)
+EMPTY = 0
+BORDER = 1
+SNAKE = 2
+FOOD = 3
+scoreFmt BYTE "Your score: %d",0
+scoreMsg BYTE "Score:",0
+mapRawData BYTE MapSize DUP(2 * (MapSize + 1) DUP(' '))
+mapRawColor WORD MapSize + 2 DUP(2 * MapSize DUP(6))
+mapItem BYTE "■",0,0,0
+score DWORD 0
+PAD BYTE " ",0
+
+; for print
+pMapRawData DWORD offset scoreMsg, offset PAD,MapSize DUP(0) ; char**
+pMapRawColor DWORD MapSize + 2 DUP(0) ; color**
+BORDERCOLOR = 2
+SNAKECOLOR = 2
+FOODCOLOR = 3
+
+; for snake
+snakeArr QWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save snake (x,y) x in low byte,y in high byte
+snakeHead DWORD -1
+
+.code
+InitMap PROC
+	push ebp
+	mov ebp,esp
+	push esi
+	push edi
+	; fill map border
+	mov eax,offset map
+	push 0
+	push BORDER
+	push MapSize
+	push MapSize
+	push eax
+	mov eax,offset map
+	call FillBorder
+	add esp,20
+	; fill mapRawColor border
+	; fill first line
+	mov eax,offset mapRawColor
+	push BORDERCOLOR
+	push 2 * MapSize
+	push eax
+	call FillRow
+	add esp,12
+	; fill border from thrid line
+	add eax,2 * MapSize * 2 * 2
+	push 0
+	push BORDERCOLOR
+	push 2 * MapSize
+	push MapSize
+	push eax
+	call FillBorder
+	add esp,20
+	; fill second column
+	mov eax,offset mapRawColor
+	add eax,2
+	push BORDERCOLOR
+	push 2 * MapSize
+	push MapSize + 2
+	push eax
+	call FillColumn
+	add esp,16
+	; fill last column
+	mov eax,offset mapRawColor
+	add eax, 2 * MapSize * 2 - 4
+	push BORDERCOLOR
+	push 2 * MapSize
+	push MapSize + 2
+	push eax
+	call FillColumn
+	add esp,16
+	; fill mapRawData border
+	mov eax,offset mapRawData
+	push 1
+	push DWORD PTR [mapItem]
+	push MapSize
+	push MapSize
+	push eax
+	call FillBorder
+	add esp,20
+	; pad 0 to end of mapRawData
+	add eax,2 * MapSize
+	push 0
+	push MapSize + 1
+	push MapSize
+	push eax
+	call FillColumn
+	add esp,16
+	; init pMapRawData and pMapRawColor
+	mov eax,offset mapRawData
+	mov ebx,offset pMapRawData
+	add ebx,8
+	mov esi,offset mapRawColor
+	mov edi,offset pMapRawColor
+	mov ecx,MapSize
+	DOINIT:
+		mov DWORD PTR [ebx],eax
+		add eax,2 * (MapSize + 1)
+		add ebx,4
+		mov DWORD PTR [edi],esi
+		add esi,2 * MapSize * 2
+		add edi,4
+		LOOP DOINIT
+	; remaining two rows
+	mov DWORD PTR [edi],esi
+	add esi,2 * MapSize * 2
+	add edi,4
+	mov DWORD PTR [edi],esi
+	add esi,2 * MapSize * 2
+	add edi,4
+	pop edi
+	pop esi
+	pop ebp
+	ret
+InitMap ENDP
+
+RestoreMap PROC
+RestoreMap ENDP
+
+UpdateMap PROC
+UpdateMap ENDP
+
+InsertSnakeNode PROC
+; param1 x param2 y
+	push ebp
+	mov ebp,esp
+	mov eax,DWORD PTR [ebp + 8] ; x
+	mov ebx,DWORD PTR [ebp + 12] ; y
+	mov ecx,DWORD PTR [snakeHead]
+	inc snakeHead
+	mov DWORD PTR [snakeArr + ecx * 8],eax
+	mov DWORD PTR [snakeArr + ecx * 8 + 4],ebx
+	pop ebp
+	ret
+InsertSnakeNode ENDP
+
+GameLoop PROC
+	push ebp
+	mov ebp,esp
+	pop ebp
+	ret
+GameLoop ENDP
+
+Game PROC
+	; return score
+	push ebp
+	mov ebp,esp
+	call InitMap
+
+	mov ecx,offset pMapRawColor
+
+	call SwapBuffer
+	push DWORD PTR [g_currentActiveBuffer]
+	call SetConsoleActiveScreenBuffer
+
+	push offset pMapRawColor
+	push MapSize + 2
+	push offset pMapRawData
+	call PrintStrs
+	add esp,12
+	pop ebp
+	ret
+Game ENDP
+END

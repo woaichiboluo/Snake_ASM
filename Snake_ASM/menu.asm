@@ -1,10 +1,10 @@
 INCLUDE common.inc
 
 PrintStrs PROTO
+FillRow PROTO
 extern g_inputHandle :DWORD
 
 .const
-CRLF BYTE 0Ah,0Dh,0
 line1 BYTE "  ____                    _           ",0
 line2 BYTE " / ___|   _ __     __ _  | | __   ___ ",0
 line3 BYTE " \___ \  | '_ \   / _` | | |/ /  / _ \",0
@@ -14,22 +14,76 @@ pad BYTE 0
 score BYTE 0
 enterMsg BYTE " ENTER: Begin Game",0
 quitMsg BYTE " ESC: Quit",0
+menuStrs DWORD OFFSET line1,OFFSET line2,OFFSET line3,OFFSET line4,OFFSET line5,OFFSET PAD,OFFSET score,OFFSET PAD,OFFSET enterMSG,OFFSET quitMsg
+logoColor = 1
+scoreColor = 1
+hintColor = 1
 
-
+.data
+menuColor WORD 10 DUP(38 DUP(0))
+pMenuColor DWORD 10 DUP(0)
 
 .code
+InitMenuColor PROC
+	push ebp
+	mov ebp,esp
+	mov eax,offset menuColor
+	mov ebx,offset pMenuColor
+	mov ecx,0
+	InitColor:
+		mov DWORD PTR [ebx],eax
+		cmp ecx,10
+		jae COLORDONE
+		cmp ecx,5
+		jae DOSCORECOLOR
+		push logoColor
+		push 38
+		push eax
+		call FillRow
+		add esp,12
+		jmp NEXT
+		DOSCORECOLOR:
+			cmp ecx,6
+			jne DOHINTCOLOR
+			push scoreColor
+			push 38
+			push eax
+			call FillRow
+			add esp,12
+			jmp NEXT
+		DOHINTCOLOR:
+			cmp ecx,8
+			jb NEXT
+			push hintColor
+			push 38
+			push eax
+			call FillRow
+			add esp,12
+		NEXT:
+			add ebx,4
+			add eax,38
+			inc ecx
+		jmp InitColor
+	COLORDONE:
+	pop ebp
+	ret
+InitMenuColor ENDP
+
 Menu PROC
 ; return 1: begin game 0: quit
 .const
-	menuStrs DWORD OFFSET line1,OFFSET line2,OFFSET line3,OFFSET line4,OFFSET line5,OFFSET PAD,OFFSET score,OFFSET PAD,OFFSET enterMSG,OFFSET quitMsg
 .code
 	push ebp
 	mov ebp,esp
 	sub esp,210
+	call InitMenuColor
+	mov ebx,OFFSET menuColor
+	mov eax,DWORD PTR [pMenuColor]
+	push OFFSET pMenuColor
 	push LENGTHOF menuStrs
 	push OFFSET menuStrs
 	call PrintStrs
-	add esp,8
+	add esp,12
 	; read key
 	push edi
 	push esi

@@ -78,11 +78,10 @@ main PROC
 	call Menu
 	cmp eax,0
 	je exit
-Exit:
 	Call Game
-
 W:
 	jmp W
+Exit:
 	push 0
 	call ExitProcess
 main ENDP
