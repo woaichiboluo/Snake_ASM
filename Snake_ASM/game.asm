@@ -34,14 +34,18 @@ pMapRawColor DWORD MapSize + 2 DUP(0) ; color**
 EMPTYCOLOR = 1
 BORDERCOLOR = 2
 SNAKECOLOR = 3
-FOODCOLOR = 3
+FOODCOLOR = 12
 
 ; for snake
 snakeArr DWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save snake (x,y) x in low byte,y in high byte
 snakeHead DWORD -1
 ; UP -FFFF0000h DOWN 1000h LEFT -1 RIGHT 1
 moveDirection DWORD 1
-speed DWORD 150
+speed DWORD 50
+
+; for food
+foodPos DWORD 0
+foodArr DWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save food (x,y) x in low byte,y in high byte
 
 .code
 InitMap PROC
@@ -194,9 +198,7 @@ InsertSnakeNode PROC
 	mov ebp,esp
 	pushad
 	mov eax,DWORD PTR [ebp + 8] ; x
-	inc eax
 	mov ebx,DWORD PTR [ebp + 12] ; y
-	inc ebx
 	sal ebx,16
 	mov bx,ax
 	mov eax,ebx
@@ -213,10 +215,9 @@ InsertSnakeNode ENDP
 GenSnake PROC
 	push ebp
 	mov ebp,esp
-	mov eax,0
+	mov eax,1
 	mov ebx,MapSize
 	sar ebx,1
-	sub ebx,1
 	mov ecx,3
 	ADDSNAKENODE:
 		push ebx
@@ -231,6 +232,54 @@ GenSnake PROC
 	pop ebp
 	ret
 GenSnake ENDP
+
+GenFood PROC
+; return 1: success 0: fail
+	push ebp
+	mov ebp,esp
+	mov eax,offset map
+	mov ebx,offset foodArr
+	mov ecx,MapSize * MapSize
+	ADDFOOD:
+		mov dx,WORD PTR [eax]
+		cmp WORD PTR [eax],EMPTY
+		jne FILLED
+		mov edx,eax
+		mov DWORD PTR [ebx],edx
+		add ebx,4
+		FILLED:
+		add eax,2
+		LOOP ADDFOOD
+	mov eax,ebx
+	sub eax,offset foodArr
+	sar eax,2
+	push eax
+	push 0
+	call GetRandomFromRange
+	add esp,8
+	lea edx,foodArr
+	mov edx,DWORD PTR [edx + eax * 4]
+	mov WORD PTR [edx],FOOD
+	mov eax,offset map
+	sub edx,offset map
+	cmp edx,0
+	mov eax,0
+	je NOMOREFOOD
+	sar edx,1
+	; use size to get the x,y
+	mov eax,edx
+	mov edx,0
+	mov ecx,MapSize
+	div ecx
+	; x in edx,y in eax
+	mov WORD PTR [foodPos],dx
+	mov WORD PTR [foodPos + 2],ax
+	mov eax,DWORD PTR [foodPos]
+	mov eax,1
+	NOMOREFOOD:
+	pop ebp
+	ret
+GenFood ENDP
 
 PrintMap PROC
 	push ebp
@@ -316,6 +365,34 @@ WaitKey PROC
 	ret
 WaitKey ENDP
 
+SnakeAlive PROC
+; param1 (x,y)
+; return 1: alive 0:die
+	push ebp
+	mov ebp,esp
+	mov eax,DWORD PTR [ebp + 8]
+	mov ebx,DWORD PTR [ebp + 8]
+	and ebx,0FFFFh ; x
+	mov eax,DWORD PTR [ebp + 8]
+	sar eax,16 ; y
+	;check map[x][y]
+	mov ecx,MapSize
+	mul ecx ; eax = y * MapSize
+	add eax,ebx ; eax = y * MapSize + x
+	sal eax,1 ; eax = 2 * y * MapSize + x
+	mov edx,offset map
+	add edx,eax
+	mov eax,0
+	cmp WORD PTR [edx],BORDER
+	je DIE
+	cmp WORD PTR [edx],SNAKE
+	je DIE
+	mov eax,1
+	DIE:
+	pop ebp
+	ret
+SnakeAlive ENDP
+
 MoveSnake PROC
 ; pram1 new (x,y)
 	push ebp
@@ -343,25 +420,46 @@ MoveSnake ENDP
 
 TryMove PROC
 ; param1 direction
-; return 1: move 0: game_over
+; return 2:eatfood 1: move 0: game_over
 	push ebp
 	mov ebp,esp
+	push esi
 	; get cur snake head
 	mov eax,DWORD PTR [snakeHead]
 	mov ebx,offset snakeArr
-	mov edx,DWORD PTR [ebx + eax * 4] ; (x,y)
-	add edx,DWORD PTR [ebp + 8] ; next (x,y)
-	pushad
+	mov esi,DWORD PTR [ebx + eax * 4] ; (x,y)
+	add esi,DWORD PTR [ebp + 8] ; next (x,y)
+	cmp esi,DWORD PTR [foodPos]
+	jne MOVEOP
+	mov eax,esi
+	and eax,0FFFFh ; x
+	mov ebx,esi
+	sar ebx,16 ; y
+	push ebx
+	push eax
+	call InsertSnakeNode
+	add esp,8
+	push SNAKE
+	call TraversalSnake
+	add esp,4
+	mov eax,2
+	jmp TRYMOVEDONE
+	MOVEOP:
+	push esi
+	call SnakeAlive
+	add esp,4
+	cmp eax,0
+	je TRYMOVEDONE
 	push EMPTY
 	call TraversalSnake
 	add esp,4
-	popad
-	push edx
+	push esi
 	call MoveSnake
 	add esp,4
-	; if next (x,y) is snake,
-	pop ebp
-	ret
+	TRYMOVEDONE:
+		pop esi
+		pop ebp
+		ret
 TryMove ENDP
 
 GameLoop PROC
@@ -369,18 +467,23 @@ GameLoop PROC
 	mov ebp,esp
 	call InitMap
 	call GenSnake
-	call PrintMap
+	call GenFood
 
 	DOGAME:
+		call PrintMap
 		call WaitKey
 		mov eax,DWORD PTR [moveDirection]
 		push DWORD PTR [moveDirection]
 		call TryMove
 		add esp,4
-		call PrintMap
+		cmp eax,0
+		je ENDGAME
+		cmp eax,2
+		jne DONEXT
+		call GenFood
+		DONEXT:
 		push DWORD PTR [speed]
 		call Sleep
-		;je ENDGAME
 		jmp DOGAME
 	ENDGAME:
 	pop ebp
