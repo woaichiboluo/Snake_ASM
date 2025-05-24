@@ -4,6 +4,7 @@ extern g_coord :DWORD
 extern g_currentActiveBuffer :DWORD
 extern g_pendingBuffer :DWORD
 extern g_outputHandle :DWORD
+extern g_inputHandle :DWORD
 
 .code
 CalcuCenterCoord PROC
@@ -222,5 +223,52 @@ GetRandomFromRange PROC
 	pop ebp
 	ret
 GetRandomFromRange ENDP
+
+BlockReadKey PROC
+; return 1: enter press 0: esc press
+	push ebp
+	mov ebp,esp
+	push edi
+	push esi
+	sub esp,210
+	READKEY:
+		mov eax,ebp
+		sub eax,210
+		push eax; numberOfReads
+		push 10; nlength
+		add eax,10
+		push eax ; buffer
+		push DWORD PTR [g_inputHandle] ; console handle
+		call ReadConsoleInputA
+		; buffer in ebp - 200
+		lea esi,DWORD PTR [ebp - 200]
+		mov edi,0
+		FINDKEY:
+			cmp edi,DWORD PTR [ebp - 210]
+			JAE ReadKey
+			xor edx,edx
+			mov dx,WORD PTR [esi]
+			cmp edx,1; KEY_EVENT
+			; ignore KEY_RELEASE or KEY_PRESS, only check VT_RETURN and VT_ESCAPE
+			jne NOTEXPECT
+			mov dx,WORD PTR [esi + 10]
+			mov eax,1
+			cmp edx,0Dh
+			je QUIT
+			mov eax,0
+			cmp edx,1Bh
+			je QUIT
+			; get virtual key code
+			NOTEXPECT:
+				sub esi,20
+				inc edi
+		jmp READKEY
+	Quit:
+	add esp,210
+	pop esi
+	pop edi
+	pop ebp
+	ret
+BlockReadKey ENDP
 
 END

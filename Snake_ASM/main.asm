@@ -87,8 +87,6 @@ main PROC
 	cmp eax,0
 	je exit
 	Call Game
-W:
-	jmp W
 Exit:
 	push 0
 	call ExitProcess

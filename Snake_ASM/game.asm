@@ -11,6 +11,7 @@ FillRow PROTO
 FillColumn PROTO
 FillBorder PROTO
 GetRandomFromRange PROTO
+BlockReadKey PROTO
 
 .data
 MapSize = 25
@@ -19,8 +20,8 @@ EMPTY = 0
 BORDER = 1
 SNAKE = 2
 FOOD = 3
-scoreFmt BYTE "Your score: %d",0
-scoreMsg BYTE "Score:",0
+scoreFmt BYTE "Score: %-5d",0
+scoreMsg BYTE 50 DUP(0)
 mapRawData BYTE MapSize DUP(2 * (MapSize + 1) DUP(0))
 mapRawColor WORD MapSize + 2 DUP(2 * MapSize DUP(6))
 emptyItem BYTE "  ",0,0,0
@@ -34,7 +35,7 @@ pMapRawColor DWORD MapSize + 2 DUP(0) ; color**
 EMPTYCOLOR = 1
 BORDERCOLOR = 2
 SNAKECOLOR = 3
-FOODCOLOR = 12
+FOODCOLOR = 1
 
 ; for snake
 snakeArr DWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save snake (x,y) x in low byte,y in high byte
@@ -44,7 +45,7 @@ moveDirection DWORD 1
 speed DWORD 50
 
 ; for food
-foodPos DWORD 0
+foodPos DWORD 10001h
 foodArr DWORD (MapSize - 2) * (MapSize - 2) DUP(0) ; save food (x,y) x in low byte,y in high byte
 
 .code
@@ -284,6 +285,12 @@ GenFood ENDP
 PrintMap PROC
 	push ebp
 	mov ebp,esp
+	push DWORD PTR [score]
+	push offset scoreFmt
+	push 50
+	push offset scoreMsg
+	call snprintf
+	add esp,16
 	call SwapBuffer
 	call UpdateMap
 	push DWORD PTR [g_currentActiveBuffer]
@@ -442,6 +449,8 @@ TryMove PROC
 	push SNAKE
 	call TraversalSnake
 	add esp,4
+	mov ebx,offset score
+	inc DWORD PTR [score]
 	mov eax,2
 	jmp TRYMOVEDONE
 	MOVEOP:
@@ -462,15 +471,37 @@ TryMove PROC
 		ret
 TryMove ENDP
 
-GameLoop PROC
+InitGame PROC
 	push ebp
 	mov ebp,esp
+	mov DWORD PTR [score],0
+	mov DWORD PTR [moveDirection],1
+	mov eax,DWORD PTR [foodPos]
+	and eax,0FFFFh ; x
+	mov ebx,DWORD PTR [foodPos]
+	sar ebx,16 ; y
+	push ebx
+	push eax
+	call InsertSnakeNode
+	add esp,8
+	push EMPTY
+	call TraversalSnake
+	add esp,4
+	mov DWORD PTR [snakeHead],-1
 	call InitMap
 	call GenSnake
 	call GenFood
+	call PrintMap
+	pop ebp
+	ret
+InitGame ENDP
+
+GameLoop PROC
+	push ebp
+	mov ebp,esp
+	call InitGame
 
 	DOGAME:
-		call PrintMap
 		call WaitKey
 		mov eax,DWORD PTR [moveDirection]
 		push DWORD PTR [moveDirection]
@@ -482,6 +513,7 @@ GameLoop PROC
 		jne DONEXT
 		call GenFood
 		DONEXT:
+		call PrintMap
 		push DWORD PTR [speed]
 		call Sleep
 		jmp DOGAME
@@ -491,10 +523,13 @@ GameLoop PROC
 GameLoop ENDP
 
 Game PROC
-	; return score
 	push ebp
 	mov ebp,esp
-	call GameLoop
+	ReStart:
+		call GameLoop
+		call BlockReadKey
+		cmp eax,1
+		je ReStart
 	pop ebp
 	ret
 Game ENDP
